@@ -44,6 +44,8 @@ const MESSAGES = {
   bootstrap_disabled: 'כבר קיים מנהל במערכת. ההקמה הראשונית נסגרה.',
   bootstrap_not_configured: 'קוד ההקמה עדיין לא נשמר ב-Supabase (BOOTSTRAP_TOKEN, לפחות 20 תווים).',
   bootstrap_token_invalid: 'קוד ההקמה שגוי.',
+  class_not_allowed: 'אפשר לשייך תלמיד רק לכיתה שמשויכת אליך. מנהל יכול לשייך כיתות בלשונית "כיתות ורבנים".',
+  confirm_title_mismatch: 'השם שהוקלד אינו תואם לשם האסיפה. המחיקה לא בוצעה.',
   note_too_long: 'ההערה ארוכה מדי.',
   network: 'בעיית תקשורת. בדקו את החיבור לאינטרנט ונסו שוב.',
   not_configured: 'המערכת עדיין לא הוגדרה (חסרה כתובת Supabase בקובץ config.js).',

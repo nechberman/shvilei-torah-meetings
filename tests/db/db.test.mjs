@@ -398,4 +398,78 @@ test.describe('database', { skip }, () => {
     assert.equal(r.skipped, 1);
     assert.equal((await su('select full_name from students where national_id_normalized = $1', [makeId(30000001)]))[0].full_name, 'יבוא אחד');
   });
+
+  test('class teacher: assign to whole class, skip students with active appointments, import fallback', async () => {
+    const [{ id: cls }] = await as('authenticated', U.admin, "select admin_upsert_class(null, 'שיעור ג׳', true) as id");
+    const ids = [];
+    for (let i = 0; i < 3; i++) {
+      const [{ id }] = await as('authenticated', U.admin, 'select admin_upsert_student(null, $1, $2, $3, $4, true) as id',
+        [makeId(40000000 + i), `ג ${i}`, cls, S.t1]);
+      ids.push(id);
+    }
+    // תלמיד אחד עם תור פעיל באסיפה פתוחה
+    const [{ id: conf2 }] = await as('authenticated', U.admin,
+      "select admin_upsert_conference(null, 'אסיפה ב', null, '2026-12-01', '2026-12-02') as id");
+    await as('authenticated', U.admin, 'select admin_set_conference_teacher($1, $2, 15)', [conf2, S.t1]);
+    await as('authenticated', U.admin, 'select staff_add_availability($1, $2, $3, $4)',
+      [conf2, S.t1, '2026-12-01T12:00:00Z', '2026-12-01T13:00:00Z']);
+    await as('authenticated', U.admin, "select admin_set_conference_status($1, 'open')", [conf2]);
+    const [{ slot_id }] = await as('authenticated', U.admin,
+      'select slot_id from staff_conference_board($1, $2) order by starts_at limit 1', [conf2, S.t1]);
+    const bk = (await as('authenticated', U.admin, 'select staff_book($1, $2) as r', [ids[0], slot_id]))[0].r;
+    assert.equal(bk.ok, true, 'admin books by phone');
+
+    await assert.rejects(as('authenticated', U.t1, 'select admin_set_class_teacher($1, $2, true)', [cls, S.t2]), /not_authorized/);
+    const [{ r }] = await as('authenticated', U.admin, 'select admin_set_class_teacher($1, $2, true) as r', [cls, S.t2]);
+    assert.equal(r.updated, 2);
+    assert.equal(r.blocked.length, 1);
+    const rows = await su('select id, teacher_id from students where class_id = $1', [cls]);
+    assert.equal(rows.find((x) => x.id === ids[0]).teacher_id, S.t1, 'student with appointment kept');
+    assert.equal(rows.filter((x) => x.teacher_id === S.t2).length, 2);
+    assert.equal((await as('authenticated', U.t1, 'select teacher_id from classes where id = $1', [cls]))[0].teacher_id, S.t2);
+
+    const [{ r: imp }] = await as('authenticated', U.admin, 'select admin_import_students($1, true, false, false) as r',
+      [JSON.stringify([{ row: 2, national_id: makeId(40000010), full_name: 'בלי רב בקובץ', class_name: 'שיעור ג׳', teacher_name: '' }])]);
+    assert.equal(imp.inserted, 1);
+    assert.equal((await su('select teacher_id from students where national_id_normalized = $1', [makeId(40000010)]))[0].teacher_id, S.t2);
+    S.classC = cls;
+    S.conf2 = conf2;
+  });
+
+  test('teacher manages own student list with national ids, only in own classes', async () => {
+    const mine = await as('authenticated', U.t2, 'select * from staff_list_my_students()');
+    assert.ok(mine.length >= 3);
+    assert.ok(mine.every((r) => /^[0-9]{9}$/.test(r.national_id)));
+    const t1list = await as('authenticated', U.t1, 'select * from staff_list_my_students()');
+    assert.ok(!t1list.some((r) => mine.some((m) => m.id === r.id)), 'no overlap between teachers');
+    const classes = await as('authenticated', U.t2, 'select * from staff_my_classes()');
+    assert.ok(classes.some((c) => c.id === S.classC));
+    const [{ id }] = await as('authenticated', U.t2, 'select staff_upsert_my_student(null, $1, $2, $3, true) as id',
+      [makeId(50000001), 'נוסף ע"י הרב', S.classC]);
+    assert.equal((await su('select teacher_id from students where id = $1', [id]))[0].teacher_id, S.t2);
+    await as('authenticated', U.t2, 'select staff_upsert_my_student($1, $2, $3, $4, false)', [id, makeId(50000001), 'שם מתוקן', S.classC]);
+    assert.equal((await su('select active from students where id = $1', [id]))[0].active, false);
+    // רב א׳ לא יכול לערוך תלמיד של רב ב׳
+    await assert.rejects(as('authenticated', U.t1, 'select staff_upsert_my_student($1, $2, $3, $4, true)',
+      [id, makeId(50000001), 'x', S.class1]), /not_authorized|class_not_allowed/);
+    // מספר זהות קיים
+    await assert.rejects(as('authenticated', U.t2, 'select staff_upsert_my_student(null, $1, $2, $3, true)',
+      [S.students[0].nid, 'כפול', S.classC]), /national_id_exists/);
+    // כיתה שאינה שלו
+    const [{ id: other }] = await as('authenticated', U.admin, "select admin_upsert_class(null, 'כיתה זרה', true) as id");
+    await assert.rejects(as('authenticated', U.t2, 'select staff_upsert_my_student(null, $1, $2, $3, true)',
+      [makeId(50000002), 'זר', other]), /class_not_allowed/);
+  });
+
+  test('admin deletes a conference with its appointments; requires typing the title', async () => {
+    await assert.rejects(as('authenticated', U.t1, "select admin_delete_conference($1, 'אסיפה ב')", [S.conf2]), /not_authorized/);
+    await assert.rejects(as('authenticated', U.admin, "select admin_delete_conference($1, 'שם שגוי')", [S.conf2]), /confirm_title_mismatch/);
+    const [{ r }] = await as('authenticated', U.admin, "select admin_delete_conference($1, 'אסיפה ב') as r", [S.conf2]);
+    assert.equal(r.ok, true);
+    assert.equal(r.appointments_deleted, 1);
+    for (const t of ['conferences', 'appointments', 'appointment_slots', 'availability_windows', 'conference_teachers']) {
+      const col = t === 'conferences' ? 'id' : 'conference_id';
+      assert.equal((await su(`select count(*)::int n from ${t} where ${col} = $1`, [S.conf2]))[0].n, 0, t);
+    }
+  });
 });

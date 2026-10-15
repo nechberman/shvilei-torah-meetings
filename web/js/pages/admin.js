@@ -18,7 +18,7 @@ let me;
 
 const TABS = [
   ['dashboard', 'סקירה'], ['conferences', 'אסיפות'], ['board', 'זמינות ותורים'], ['students', 'תלמידים'],
-  ['import', 'יבוא תלמידים'], ['classes', 'כיתות'], ['staff', 'רבנים וצוות'], ['codes', 'קודים אישיים'],
+  ['import', 'יבוא תלמידים'], ['classes', 'כיתות ורבנים'], ['staff', 'רבנים וצוות'], ['codes', 'קודים אישיים'],
   ['settings', 'הגדרות'], ['audit', 'יומן פעולות'],
 ];
 
@@ -53,7 +53,7 @@ async function init() {
 // ---------- עזרים ----------
 const loadConfs = () => select('conferences', 'id, title, description, starts_on, ends_on, status, created_at', (q) => q.order('starts_on', { ascending: false }));
 const loadTeachers = () => rpc('staff_list_teachers');
-const loadClasses = () => select('classes', 'id, name, active', (q) => q.order('name'));
+const loadClasses = () => select('classes', 'id, name, active, teacher_id', (q) => q.order('name'));
 
 /** @param {any[]} confs @param {string|null} selected @param {(id: string) => void} onChange */
 function confPicker(confs, selected, onChange) {
@@ -174,6 +174,16 @@ async function tabConferences(el) {
   } }, text);
 
   /** @param {any} c */
+  const deleteDialog = (c) => formDialog(`מחיקת האסיפה "${c.title}"`, h('div', null,
+    alertBox('err', 'המחיקה סופית: יימחקו האסיפה, כל השעות, כל התורים שנקבעו בה וההערות עליהם. אי אפשר לשחזר.'),
+    h('p', { class: 'muted small' }, 'אם רוצים רק להסתיר את האסיפה ולשמור את הנתונים – עדיף "העברה לארכיון".'),
+    field('לאישור, הקלידו את שם האסיפה', h('input', { name: 'confirm', type: 'text', autocomplete: 'off', required: true, placeholder: c.title }))), async (form) => {
+    const res = await rpc('admin_delete_conference', { p_id: c.id, p_confirm_title: val(form, 'confirm') });
+    toast(res.appointments_deleted ? `האסיפה נמחקה (כולל ${res.appointments_deleted} תורים)` : 'האסיפה נמחקה');
+    reload();
+  }, 'מחיקה לצמיתות');
+
+  /** @param {any} c */
   const teacherDialog = (c) => formDialog(`שיוך רב לאסיפה: ${c.title}`, h('div', null,
     field('רב', h('select', { name: 't', required: true }, ...activeTeachers.map((/** @type {any} */ t) => h('option', { value: t.id }, t.full_name)))),
     field('משך פגישה (דקות)', h('input', { name: 'min', type: 'number', min: '5', max: '120', value: '10', required: true }))), async (form) => {
@@ -206,6 +216,7 @@ async function tabConferences(el) {
           h('div', { class: 'section-title' }, h('h3', { style: 'margin:0' }, c.title), confStatusTag(c.status),
             h('div', { class: 'actions' },
               c.status !== 'archived' ? h('button', { class: 'btn small secondary', type: 'button', onclick: () => editDialog(c) }, 'עריכה') : null,
+              h('button', { class: 'btn small danger', type: 'button', onclick: () => deleteDialog(c) }, 'מחיקה'),
               c.status === 'draft' ? statusBtn(c, 'open', 'פתיחה להרשמה') : null,
               c.status === 'open' ? statusBtn(c, 'closed', 'סגירת ההרשמה') : null,
               c.status === 'open' ? statusBtn(c, 'draft', 'החזרה לטיוטה') : null,
@@ -286,9 +297,13 @@ async function tabStudents(el) {
       field('שם מלא', h('input', { name: 'name', type: 'text', required: true, maxlength: '100', value: s?.full_name || '' })),
       field('מספר זהות', h('input', { name: 'nid', type: 'text', inputmode: 'numeric', required: true, maxlength: '11', value: s?.national_id || '' })),
       h('div', { class: 'row' },
-        field('כיתה', h('select', { name: 'class' }, ...classes.map((/** @type {any} */ c) => h('option', { value: c.id, selected: c.id === s?.class_id }, c.name)))),
+        field('כיתה', h('select', { name: 'class', onchange: (/** @type {Event} */ e) => {
+        const cls = classes.find((/** @type {any} */ c) => c.id === /** @type {HTMLSelectElement} */ (e.target).value);
+        const tSel = /** @type {HTMLSelectElement|null} */ (/** @type {HTMLElement} */ (e.target).closest('form')?.querySelector('select[name=teacher]'));
+        if (cls?.teacher_id && tSel) tSel.value = cls.teacher_id;
+      } }, ...classes.map((/** @type {any} */ c) => h('option', { value: c.id, selected: c.id === s?.class_id }, c.name)))),
         field('רב משויך', h('select', { name: 'teacher' }, ...teachers.filter((/** @type {any} */ t) => t.active || t.id === s?.teacher_id)
-          .map((/** @type {any} */ t) => h('option', { value: t.id, selected: t.id === s?.teacher_id }, t.full_name))))),
+          .map((/** @type {any} */ t) => h('option', { value: t.id, selected: t.id === (s?.teacher_id || classes[0]?.teacher_id) }, t.full_name))))),
       h('label', { class: 'check' }, h('input', { name: 'active', type: 'checkbox', checked: s ? s.active : true }), 'תלמיד פעיל'),
       s ? h('p', { class: 'muted small' }, 'שינוי רב לתלמיד עם תור פעיל ייחסם – יש לבטל או להעביר את התור קודם.') : null), async (form) => {
       const nid = normalizeIsraeliId(val(form, 'nid'));
@@ -377,7 +392,7 @@ async function tabImport(el) {
     ['national_id', 'מספר זהות', ['ת"ז', 'תז', 'תעודת זהות', 'מספר זהות', 'id']],
     ['full_name', 'שם מלא', ['שם', 'שם מלא', 'שם התלמיד', 'name']],
     ['class_name', 'כיתה', ['כיתה', 'שיעור', 'class']],
-    ['teacher_name', 'שם הרב', ['רב', 'שם הרב', 'מחנך', 'teacher']],
+    ['teacher_name', 'שם הרב (לא חובה)', ['רב', 'שם הרב', 'מחנך', 'teacher']],
   ];
   const step = h('div');
   /** @type {string[][]} */
@@ -421,7 +436,7 @@ async function tabImport(el) {
     };
 
     const runPreview = async () => {
-      if (selects.some((s) => s.value === '-1')) { mount(preview, alertBox('err', 'יש למפות את כל ארבע העמודות.')); return; }
+      if (selects.slice(0, 3).some((s) => s.value === '-1')) { mount(preview, alertBox('err', 'יש למפות לפחות את העמודות: מספר זהות, שם מלא וכיתה.')); return; }
       mount(preview, loading('בודק את הנתונים מול המערכת…'));
       const rows = buildRows();
       try {
@@ -469,7 +484,7 @@ async function tabImport(el) {
 
   mount(el, h('section', { class: 'panel' },
     h('h2', null, 'יבוא תלמידים מ-Excel או CSV'),
-    h('p', null, 'הקובץ צריך לכלול שורת כותרות ועמודות: מספר זהות, שם מלא, כיתה, שם הרב (בדיוק כפי שמופיע ברשימת הרבנים).'),
+    h('p', null, 'הקובץ צריך לכלול שורת כותרות ועמודות: מספר זהות, שם מלא, כיתה. עמודת שם הרב לא חובה – אם אין, התלמיד יקבל את הרב שהוגדר לכיתה (לשונית "כיתות ורבנים").'),
     h('p', { class: 'muted small' }, 'מספרי זהות נקראים כטקסט; אפסים מובילים שנמחקו ב-Excel מושלמים אוטומטית. כפילויות בקובץ ומספרים לא תקינים יסומנו.'),
     field('בחירת קובץ', fileInput),
     h('button', { class: 'btn small secondary', type: 'button', onclick: () => exportXlsx('תבנית-יבוא-תלמידים.xlsx', 'תלמידים', ['מספר זהות', 'שם מלא', 'כיתה', 'שם הרב'], []) }, 'הורדת תבנית ריקה')),
@@ -486,26 +501,64 @@ function errorText(code) {
 }
 
 // =====================================================================
-// כיתות
+// כיתות ושיוך רב לכיתה
 // =====================================================================
 /** @param {HTMLElement} el */
 async function tabClasses(el) {
-  const classes = await loadClasses();
+  const [classes, teachers, students] = await Promise.all([loadClasses(), loadTeachers(), rpc('admin_list_students')]);
+  const tName = (/** @type {string|null} */ id) => teachers.find((/** @type {any} */ t) => t.id === id)?.full_name || '';
+  const countFor = (/** @type {string} */ cid) => students.filter((/** @type {any} */ x) => x.class_id === cid && x.active).length;
+  const mixed = (/** @type {any} */ c) => c.teacher_id && students.some((/** @type {any} */ x) => x.class_id === c.id && x.active && x.teacher_id !== c.teacher_id);
+  const activeTeachers = teachers.filter((/** @type {any} */ t) => t.active);
+
   /** @param {any|null} c */
-  const dialog = (c) => formDialog(c ? 'עריכת כיתה' : 'כיתה חדשה', h('div', null,
-    field('שם הכיתה', h('input', { name: 'name', type: 'text', required: true, maxlength: '60', value: c?.name || '' })),
-    h('label', { class: 'check' }, h('input', { name: 'active', type: 'checkbox', checked: c ? c.active : true }), 'פעילה')), async (form) => {
-    await rpc('admin_upsert_class', { p_id: c?.id || null, p_name: val(form, 'name'), p_active: /** @type {HTMLInputElement} */ (form.elements.namedItem('active')).checked });
-    toast('הכיתה נשמרה');
-    tabClasses(el);
-  });
-  mount(el, h('div', { class: 'section-title' }, h('h2', null, 'כיתות'),
+  const dialog = (c) => {
+    const apply = /** @type {HTMLInputElement} */ (h('input', { name: 'apply', type: 'checkbox', checked: true }));
+    formDialog(c ? `עריכת כיתה – ${c.name}` : 'כיתה חדשה', h('div', null,
+      field('שם הכיתה', h('input', { name: 'name', type: 'text', required: true, maxlength: '60', value: c?.name || '' })),
+      field('הרב של הכיתה', h('select', { name: 'teacher' },
+        h('option', { value: '' }, '— ללא —'),
+        ...activeTeachers.map((/** @type {any} */ t) => h('option', { value: t.id, selected: t.id === c?.teacher_id }, t.full_name))),
+      'תלמידים חדשים בכיתה (גם ביבוא) יקבלו אוטומטית את הרב הזה.'),
+      h('label', { class: 'check' }, apply, 'להעביר גם את כל התלמידים הקיימים בכיתה לרב הזה'),
+      h('p', { class: 'muted small' }, 'תלמיד שכבר נקבע לו תור לא יועבר אוטומטית. תופיע רשימה שלהם כדי לטפל בהם.'),
+      h('label', { class: 'check' }, h('input', { name: 'active', type: 'checkbox', checked: c ? c.active : true }), 'כיתה פעילה')), async (form) => {
+      const id = await rpc('admin_upsert_class', { p_id: c?.id || null, p_name: val(form, 'name'), p_active: /** @type {HTMLInputElement} */ (form.elements.namedItem('active')).checked });
+      const teacherId = val(form, 'teacher') || null;
+      if (teacherId !== (c?.teacher_id || null) || (teacherId && apply.checked)) {
+        const res = await rpc('admin_set_class_teacher', { p_class_id: id, p_teacher_id: teacherId, p_apply_to_students: apply.checked });
+        if (res.blocked?.length) {
+          await confirmDialog('חלק מהתלמידים לא הועברו',
+            h('div', null,
+              h('p', null, `הועברו ${res.updated} תלמידים. לתלמידים הבאים יש תור פעיל אצל הרב הקודם, ולכן הם נשארו אצלו:`),
+              h('ul', null, ...res.blocked.map((/** @type {any} */ b) => h('li', null, b.full_name))),
+              h('p', { class: 'muted small' }, 'כדי להעביר אותם: בטלו את התור בלשונית "זמינות ותורים", ואז ערכו את התלמיד.')),
+            { okText: 'הבנתי' });
+        } else if (res.updated) {
+          toast(`הכיתה נשמרה, ${res.updated} תלמידים הועברו לרב`);
+        } else {
+          toast('הכיתה נשמרה');
+        }
+      } else {
+        toast('הכיתה נשמרה');
+      }
+      tabClasses(el);
+    });
+  };
+
+  mount(el, h('div', { class: 'section-title' }, h('h2', null, 'כיתות ורבנים'),
     h('div', { class: 'actions' }, h('button', { class: 'btn', type: 'button', onclick: () => dialog(null) }, 'כיתה חדשה'))),
+  h('p', { class: 'muted' }, 'לכל כיתה בוחרים רב. הרב רואה ומנהל רק את התלמידים שמשויכים אליו. אפשר גם לשייך תלמיד בודד לרב אחר דרך לשונית "תלמידים".'),
   classes.length === 0 ? h('section', { class: 'panel' }, empty('אין כיתות', 'הוסיפו כיתה, או סמנו "ליצור כיתות" ביבוא.')) :
     h('div', { class: 'table-wrap' }, h('table', { class: 'data' },
-      h('thead', null, h('tr', null, h('th', null, 'כיתה'), h('th', null, 'מצב'), h('th', null, ''))),
-      h('tbody', null, ...classes.map((/** @type {any} */ c) => h('tr', null, h('td', null, c.name), h('td', null, c.active ? 'פעילה' : 'לא פעילה'),
-        h('td', null, h('button', { class: 'btn small secondary', type: 'button', onclick: () => dialog(c) }, 'עריכה'))))))));
+      h('thead', null, h('tr', null, h('th', null, 'כיתה'), h('th', null, 'רב'), h('th', { class: 'num' }, 'תלמידים'), h('th', null, 'מצב'), h('th', null, ''))),
+      h('tbody', null, ...classes.map((/** @type {any} */ c) => h('tr', null,
+        h('td', null, c.name),
+        h('td', null, c.teacher_id ? tName(c.teacher_id) : h('span', { class: 'muted' }, 'לא נבחר'),
+          mixed(c) ? h('div', { class: 'small muted' }, 'חלק מהתלמידים משויכים לרב אחר') : null),
+        h('td', { class: 'num' }, String(countFor(c.id))),
+        h('td', null, c.active ? 'פעילה' : 'לא פעילה'),
+        h('td', null, h('button', { class: 'btn small secondary', type: 'button', onclick: () => dialog(c) }, 'עריכה ושיוך רב'))))))));
 }
 
 // =====================================================================

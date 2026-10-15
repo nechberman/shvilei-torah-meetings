@@ -151,11 +151,14 @@ export async function renderWorkspace(host, ctx) {
       h('div', { class: 'actions' }, h('span', { class: 'muted' }, `נרשמו ${booked}, טרם נרשמו ${unbooked.length}`))),
     data.students.length === 0 ? empty('אין תלמידים משויכים') :
       h('div', { class: 'table-wrap' }, h('table', { class: 'data' },
-        h('thead', null, h('tr', null, h('th', null, 'תלמיד'), h('th', null, 'כיתה'), h('th', null, 'מצב'), h('th', null, 'מועד'))),
+        h('thead', null, h('tr', null, h('th', null, 'תלמיד'), h('th', null, 'כיתה'), h('th', null, 'מצב'), h('th', null, 'מועד'), h('th', null, ''))),
         h('tbody', null, ...data.students.map((/** @type {any} */ s) => h('tr', null,
           h('td', null, s.full_name), h('td', null, s.class_name),
           h('td', null, s.appointment_id ? h('span', { class: 'tag booked' }, 'נרשם') : h('span', { class: 'tag pending' }, 'טרם נרשם')),
-          h('td', null, s.appointment_id ? `${fullDayLabelFromTs(s.starts_at)}, ${timeLabel(s.starts_at)}` : '')))))));
+          h('td', null, s.appointment_id ? `${fullDayLabelFromTs(s.starts_at)}, ${timeLabel(s.starts_at)}` : ''),
+          h('td', null, editable && !s.appointment_id && conf.status === 'open'
+            ? h('button', { class: 'btn small secondary', type: 'button', onclick: () => bookForStudentDialog(s) }, 'קביעת תור')
+            : null)))))));
 
   mount(host, summary,
     !editable ? alertBox('info', 'האסיפה בארכיון – צפייה בלבד.') : null,
@@ -173,7 +176,11 @@ export async function renderWorkspace(host, ctx) {
         field('משעה', h('input', { name: 'from', type: 'time', required: true, value: isBlock ? '18:00' : '17:00', step: '300' })),
         field('עד שעה', h('input', { name: 'to', type: 'time', required: true, value: isBlock ? '18:15' : '20:00', step: '300' }))),
       isBlock ? field('סיבה (פנימי, לא מוצג להורים)', h('input', { name: 'reason', type: 'text', maxlength: '200' })) : null,
-      !isBlock ? h('p', { class: 'muted small' }, `החלון יחולק לתורים של ${data.duration} דקות.`) : null);
+      !isBlock ? field('כל כמה דקות תור', h('select', { name: 'dur' },
+        ...[5, 10, 15, 20, 30, 45, 60].concat([5, 10, 15, 20, 30, 45, 60].includes(data.duration) ? [] : [data.duration])
+          .map((m) => h('option', { value: String(m), selected: m === data.duration }, m === 15 ? 'רבע שעה (15 דקות)' : m === 30 ? 'חצי שעה (30 דקות)' : m === 60 ? 'שעה (60 דקות)' : `${m} דקות`))),
+      'משך התור חל על כל השעות של הרב באסיפה זו. תורים שכבר נקבעו לא ישתנו.') : null,
+      !isBlock ? h('p', { class: 'muted small' }, 'להפסקה באמצע (למשל 16:00–16:30) – הוסיפו אחר כך "הפסקה".') : null);
     formDialog(isBlock ? 'הוספת הפסקה' : 'הוספת חלון זמינות', content, async (form) => {
       const day = val(form, 'day');
       const start = zonedToUtc(day, val(form, 'from')).toISOString();
@@ -182,6 +189,10 @@ export async function renderWorkspace(host, ctx) {
         await rpc('staff_add_block', { p_conference_id: conf.id, p_teacher_id: teacherId, p_start: start, p_end: end, p_reason: val(form, 'reason') });
         toast('ההפסקה נוספה');
       } else {
+        const dur = Number(val(form, 'dur'));
+        if (dur && dur !== data.duration) {
+          await rpc('staff_set_duration', { p_conference_id: conf.id, p_teacher_id: teacherId, p_minutes: dur });
+        }
         await rpc('staff_add_availability', { p_conference_id: conf.id, p_teacher_id: teacherId, p_start: start, p_end: end });
         toast('חלון הזמינות נוסף');
       }
@@ -230,6 +241,20 @@ export async function renderWorkspace(host, ctx) {
       toast('התור נקבע');
       reload();
     }, 'קביעה');
+  }
+
+  /** קביעת תור לתלמיד מסוים (למשל אחרי שיחה טלפונית עם ההורים)
+   * @param {any} st */
+  function bookForStudentDialog(st) {
+    const opts = freeSlotOptions();
+    if (!opts.length) { toast('אין שעה פנויה. הוסיפו חלון זמינות קודם.', 'err'); return; }
+    formDialog(`קביעת תור – ${st.full_name}`, h('div', null,
+      field('מועד', h('select', { name: 'slot', required: true }, ...opts)),
+      h('p', { class: 'muted small' }, 'אפשר לשנות או לבטל את התור אחר כך מלוח התורים.')), async (form) => {
+      await rpc('staff_book', { p_student_id: st.student_id, p_slot_id: val(form, 'slot') });
+      toast('התור נקבע');
+      reload();
+    }, 'קביעת התור');
   }
 
   /** @param {any} b */
