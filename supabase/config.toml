@@ -1,0 +1,11 @@
+# הגדרות Supabase CLI (לפריסה מקומית/CLI). verify_jwt כבוי כי הפונקציות מבצעות אימות בעצמן.
+project_id = "shvilei-torah-meetings"
+
+[functions.parent]
+verify_jwt = false
+
+[functions.staff-login]
+verify_jwt = false
+
+[functions.admin-staff]
+verify_jwt = false

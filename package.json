@@ -1,0 +1,29 @@
+{
+  "name": "shvilei-torah-meetings",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "מערכת זימון אסיפות הורים – ישיבת שבילי התורה",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "lint": "eslint web/js scripts tests",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "node --test tests/unit/*.test.mjs",
+    "test:db": "node --test --test-concurrency=1 tests/db/*.test.mjs",
+    "check": "npm run lint && npm run typecheck && npm test && npm run build",
+    "serve": "npx --yes http-server dist -p 8080 -c-1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.36.0",
+    "esbuild": "^0.25.10",
+    "eslint": "^9.36.0",
+    "globals": "^16.4.0",
+    "pg": "^8.16.3",
+    "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "@hebcal/core": "^5.10.1",
+    "@supabase/supabase-js": "^2.57.4",
+    "exceljs": "^4.4.0"
+  }
+}

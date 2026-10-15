@@ -1,0 +1,66 @@
+# בדיקות (lint, typecheck, unit, DB) ופרסום ל-GitHub Pages
+name: CI and Pages
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGPASSWORD: postgres
+      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/shvilei_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - name: Prepare test database
+        run: |
+          psql -h localhost -U postgres -c "create database shvilei_test"
+          psql -h localhost -U postgres -d shvilei_test -v ON_ERROR_STOP=1 -f supabase/tests/00_local_shim.sql
+          for f in supabase/migrations/*.sql; do psql -h localhost -U postgres -d shvilei_test -v ON_ERROR_STOP=1 -f "$f"; done
+      - run: npm run test:db
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Check Edge Functions
+        working-directory: supabase/functions
+        run: deno check parent/index.ts staff-login/index.ts admin-staff/index.ts && deno lint
+      - run: npm run build
+      - uses: actions/upload-pages-artifact@v3
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        with:
+          path: dist
+
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

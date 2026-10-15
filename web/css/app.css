@@ -1,0 +1,265 @@
+/* מערכת זימון אסיפות הורים – ישיבת שבילי התורה
+   פלטה: כחול כהה, לבן ואפור בהיר. כותרות ותאריכים עבריים ב-Frank Ruhl Libre (אופי של ספר),
+   טקסט ממשק ב-Assistant. האלמנט הבולט: "דף לוח" ליום – אות התאריך העברי גדולה. */
+:root {
+  --navy: #14284b;
+  --navy-deep: #0e1d38;
+  --navy-soft: #2c4675;
+  --paper: #ffffff;
+  --mist: #eef1f5;
+  --line: #d5dbe4;
+  --text: #1c2433;
+  --muted: #5b6577;
+  --ok: #1e6b4f;
+  --ok-bg: #e7f3ee;
+  --err: #a3262a;
+  --err-bg: #fbecec;
+  --warn: #7a5300;
+  --warn-bg: #fdf4de;
+  --focus: #2f6fd6;
+  --serif: 'Frank Ruhl Libre', 'David Libre', 'Times New Roman', serif;
+  --sans: 'Assistant', 'Segoe UI', Arial, sans-serif;
+  --r-sm: 6px;
+  --r-md: 10px;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--mist);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  direction: rtl;
+}
+img { max-width: 100%; }
+a { color: var(--navy-soft); }
+h1, h2, h3 { font-family: var(--serif); color: var(--navy); line-height: 1.25; margin: 0 0 .5em; font-weight: 700; }
+h1 { font-size: 1.9rem; }
+h2 { font-size: 1.45rem; }
+h3 { font-size: 1.15rem; }
+p { margin: 0 0 .9em; }
+.muted { color: var(--muted); }
+.small { font-size: .92rem; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+/* ---------- מסגרת ---------- */
+.site-head {
+  background: var(--navy);
+  color: #fff;
+  border-bottom: 4px solid var(--navy-deep);
+}
+.site-head .inner {
+  max-width: 1100px; margin: 0 auto; padding: 14px 16px;
+  display: flex; align-items: center; gap: 14px;
+}
+.site-head img.logo { height: 48px; width: auto; background: #fff; border-radius: 50%; padding: 3px; }
+.site-head .name { font-family: var(--serif); font-size: 1.3rem; font-weight: 700; }
+.site-head .sub { font-size: .95rem; opacity: .85; }
+.site-head nav { margin-inline-start: auto; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.site-head nav .who { font-size: .95rem; opacity: .9; margin-inline-end: 6px; }
+
+main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
+main.narrow { max-width: 600px; }
+
+.panel {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 22px 20px;
+  margin-bottom: 18px;
+}
+.panel > h2:first-child, .panel > h3:first-child { margin-top: 0; }
+.section-title { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.section-title h2 { margin: 0; }
+.section-title .actions { margin-inline-start: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ---------- טפסים ---------- */
+label { display: block; font-weight: 600; margin-bottom: 6px; }
+.field { margin-bottom: 16px; }
+.field .hint { font-size: .9rem; color: var(--muted); margin-top: 4px; }
+input[type=text], input[type=password], input[type=number], input[type=date], input[type=time],
+input[type=url], input[type=search], select, textarea {
+  width: 100%;
+  font: inherit;
+  padding: 11px 12px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--r-sm);
+  background: #fff;
+  color: var(--text);
+}
+input:focus, select:focus, textarea:focus { border-color: var(--navy-soft); outline: none; box-shadow: 0 0 0 3px rgba(47,111,214,.25); }
+input.big { font-size: 1.5rem; letter-spacing: .08em; text-align: center; padding: 14px; direction: ltr; }
+input[inputmode=numeric] { direction: ltr; text-align: right; }
+input.big[inputmode=numeric] { text-align: center; }
+textarea { min-height: 90px; resize: vertical; }
+.row { display: flex; gap: 12px; flex-wrap: wrap; }
+.row > .field { flex: 1 1 180px; }
+.check { display: flex; gap: 8px; align-items: center; font-weight: 400; }
+.check input { width: 20px; height: 20px; }
+
+/* ---------- כפתורים ---------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  font: inherit; font-weight: 700;
+  padding: 10px 18px;
+  border-radius: var(--r-sm);
+  border: 1.5px solid var(--navy);
+  background: var(--navy); color: #fff;
+  cursor: pointer; text-decoration: none;
+  min-height: 44px;
+}
+.btn:hover { background: var(--navy-deep); }
+.btn.secondary { background: #fff; color: var(--navy); }
+.btn.secondary:hover { background: var(--mist); }
+.btn.danger { background: #fff; color: var(--err); border-color: var(--err); }
+.btn.danger:hover { background: var(--err-bg); }
+.btn.ghost { background: transparent; border-color: rgba(255,255,255,.55); color: #fff; min-height: 38px; padding: 6px 12px; }
+.btn.ghost:hover { background: rgba(255,255,255,.12); }
+.btn.small { min-height: 34px; padding: 4px 12px; font-size: .95rem; }
+.btn.block { width: 100%; font-size: 1.15rem; min-height: 54px; }
+.btn[disabled] { opacity: .55; cursor: not-allowed; }
+.btn.waze { background: #33ccff; border-color: #1fa9d9; color: #06223a; }
+.btn.waze:hover { background: #1fbbf0; }
+
+/* ---------- הודעות ---------- */
+.alert { border-radius: var(--r-sm); padding: 12px 14px; margin: 0 0 16px; border: 1px solid; }
+.alert.err { background: var(--err-bg); color: var(--err); border-color: #e9c3c4; }
+.alert.ok { background: var(--ok-bg); color: var(--ok); border-color: #bfe0d2; }
+.alert.warn { background: var(--warn-bg); color: var(--warn); border-color: #efdcae; }
+.alert.info { background: var(--mist); color: var(--text); border-color: var(--line); }
+.toast-host { position: fixed; inset-inline: 0; bottom: 16px; display: flex; justify-content: center; pointer-events: none; z-index: 50; }
+.toast { pointer-events: auto; background: var(--navy-deep); color: #fff; padding: 12px 18px; border-radius: var(--r-sm); max-width: min(92vw, 520px); box-shadow: 0 6px 24px rgba(14,29,56,.3); }
+.toast.err { background: var(--err); }
+
+.loading { display: flex; align-items: center; gap: 10px; color: var(--muted); padding: 20px 0; }
+.spinner { width: 22px; height: 22px; border: 3px solid var(--line); border-top-color: var(--navy); border-radius: 50%; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.empty { text-align: center; padding: 28px 12px; color: var(--muted); }
+.empty strong { display: block; color: var(--text); font-size: 1.1rem; margin-bottom: 4px; }
+
+/* ---------- הורים: פתיח ---------- */
+.parent-hero { text-align: center; padding: 26px 8px 8px; }
+.parent-hero img.logo { width: 96px; height: 96px; object-fit: contain; }
+.parent-hero h1 { font-size: 2.1rem; margin-top: 10px; }
+.parent-hero .school { font-family: var(--serif); font-size: 1.15rem; color: var(--muted); }
+
+.student-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden; margin-bottom: 18px; background: #fff; }
+.student-strip > div { padding: 12px 14px; border-inline-start: 1px solid var(--line); }
+.student-strip > div:first-child { border-inline-start: 0; }
+.student-strip .k { font-size: .85rem; color: var(--muted); }
+.student-strip .v { font-weight: 700; font-size: 1.1rem; }
+@media (max-width: 520px) {
+  .student-strip { grid-template-columns: 1fr; }
+  .student-strip > div { border-inline-start: 0; border-top: 1px solid var(--line); }
+  .student-strip > div:first-child { border-top: 0; }
+}
+
+/* ---------- "דף לוח" – בחירת יום ---------- */
+.day-leaves { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin: 8px 0 18px; padding: 0; list-style: none; }
+.leaf {
+  width: 100%;
+  font: inherit; text-align: center; cursor: pointer;
+  background: #fff; color: var(--text);
+  border: 1.5px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 0 0 12px;
+  overflow: hidden;
+}
+.leaf .wd { display: block; background: var(--navy); color: #fff; font-weight: 700; padding: 6px 4px; }
+.leaf .hd { display: block; font-family: var(--serif); font-size: 2.6rem; line-height: 1.1; color: var(--navy); padding-top: 8px; font-weight: 700; }
+.leaf .hm { display: block; font-family: var(--serif); font-size: 1.05rem; }
+.leaf .gd { display: block; font-size: .9rem; color: var(--muted); direction: ltr; }
+.leaf .cnt { display: block; font-size: .85rem; color: var(--ok); margin-top: 4px; }
+.leaf:hover { border-color: var(--navy-soft); }
+.leaf[aria-pressed=true] { border-color: var(--navy); box-shadow: 0 0 0 3px var(--navy); }
+
+.times { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; margin: 8px 0 18px; padding: 0; list-style: none; }
+.time-btn { width: 100%; font: inherit; font-size: 1.15rem; font-weight: 700; padding: 12px 6px; border: 1.5px solid var(--line); border-radius: var(--r-sm); background: #fff; cursor: pointer; color: var(--navy); direction: ltr; }
+.time-btn:hover { border-color: var(--navy-soft); }
+.time-btn[aria-pressed=true] { background: var(--navy); color: #fff; border-color: var(--navy); }
+
+.confirm-sheet { border: 2px solid var(--navy); border-radius: var(--r-md); background: #fff; overflow: hidden; }
+.confirm-sheet .top { background: var(--navy); color: #fff; padding: 14px 18px; font-family: var(--serif); font-size: 1.3rem; }
+.confirm-sheet .top.done { background: var(--ok); }
+.confirm-sheet dl { margin: 0; padding: 8px 18px 4px; display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; }
+.confirm-sheet dt { color: var(--muted); }
+.confirm-sheet dd { margin: 0; font-weight: 700; }
+.confirm-sheet .date-big { font-family: var(--serif); font-size: 1.2rem; }
+.confirm-sheet .actions { padding: 14px 18px 18px; display: flex; flex-wrap: wrap; gap: 10px; }
+
+.booked-line { display: flex; gap: 10px; align-items: center; background: var(--ok-bg); border: 1px solid #bfe0d2; border-radius: var(--r-sm); padding: 10px 12px; }
+
+/* ---------- צוות: טבלאות ולשוניות ---------- */
+.tabs { display: flex; gap: 2px; flex-wrap: wrap; border-bottom: 2px solid var(--navy); margin-bottom: 18px; }
+.tabs button { font: inherit; font-weight: 600; border: 0; background: transparent; padding: 10px 14px; cursor: pointer; color: var(--muted); border-radius: var(--r-sm) var(--r-sm) 0 0; }
+.tabs button[aria-selected=true] { background: var(--navy); color: #fff; }
+.tabs button:hover:not([aria-selected=true]) { background: #e2e7ee; color: var(--text); }
+
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r-sm); background: #fff; }
+table.data { width: 100%; border-collapse: collapse; font-size: .98rem; }
+table.data th, table.data td { padding: 9px 10px; text-align: right; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.data th { background: var(--mist); font-weight: 700; color: var(--navy); white-space: nowrap; }
+table.data tr:last-child td { border-bottom: 0; }
+table.data td.num, table.data th.num { text-align: left; direction: ltr; }
+table.data tr.day-row td { background: #f6f8fb; font-family: var(--serif); font-weight: 700; color: var(--navy); }
+.tag { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: .85rem; font-weight: 700; border: 1px solid; }
+.tag.open { color: var(--ok); background: var(--ok-bg); border-color: #bfe0d2; }
+.tag.draft { color: var(--muted); background: var(--mist); border-color: var(--line); }
+.tag.closed { color: var(--warn); background: var(--warn-bg); border-color: #efdcae; }
+.tag.archived { color: #fff; background: var(--muted); border-color: var(--muted); }
+.tag.booked { color: var(--ok); background: var(--ok-bg); border-color: #bfe0d2; }
+.tag.pending { color: var(--err); background: var(--err-bg); border-color: #e9c3c4; }
+.tag.blocked { color: var(--muted); background: var(--mist); border-color: var(--line); }
+
+.stats { display: flex; flex-wrap: wrap; gap: 0; border: 1px solid var(--line); border-radius: var(--r-md); background: #fff; margin-bottom: 18px; }
+.stats > div { flex: 1 1 140px; padding: 14px 16px; border-inline-start: 1px solid var(--line); }
+.stats > div:first-child { border-inline-start: 0; }
+.stats .v { font-family: var(--serif); font-size: 2rem; color: var(--navy); font-weight: 700; line-height: 1.1; }
+.stats .k { color: var(--muted); font-size: .95rem; }
+.bar { height: 8px; background: var(--mist); border-radius: 4px; overflow: hidden; min-width: 80px; }
+.bar > span { display: block; height: 100%; background: var(--navy-soft); }
+
+.toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 14px; }
+.toolbar .field { margin: 0; min-width: 180px; }
+
+dialog { border: 1px solid var(--line); border-radius: var(--r-md); padding: 0; max-width: min(560px, 94vw); width: 100%; color: var(--text); }
+dialog::backdrop { background: rgba(14,29,56,.45); }
+dialog .dlg-body { padding: 20px; }
+dialog .dlg-actions { display: flex; gap: 10px; justify-content: flex-start; padding: 0 20px 20px; flex-wrap: wrap; }
+
+.codes-sheet { columns: 2; column-gap: 24px; }
+.codes-sheet div { break-inside: avoid; border-bottom: 1px dashed var(--line); padding: 6px 0; }
+
+.login-box { max-width: 420px; margin: 40px auto; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+
+/* ---------- הדפסה A4 ---------- */
+@page { size: A4; margin: 14mm 12mm; }
+@media print {
+  body { background: #fff; font-size: 11pt; }
+  .site-head, .no-print, .tabs, .toast-host { display: none !important; }
+  main { max-width: none; padding: 0; }
+  .panel { border: 0; padding: 0; margin: 0; }
+  .print-page { break-after: page; }
+  .print-page:last-child { break-after: auto; }
+  table.data { font-size: 10.5pt; }
+  table.data th { background: #e9edf3 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  table.data tr { break-inside: avoid; }
+  thead { display: table-header-group; }
+  .confirm-sheet { border-width: 1px; }
+  .confirm-sheet .top { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  a[href]::after { content: none; }
+}
+.print-head { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid var(--navy); padding-bottom: 6px; margin-bottom: 10px; gap: 12px; }
+.print-head h1 { font-size: 1.5rem; margin: 0; }
+.print-head .meta { text-align: left; font-size: .95rem; }
+.print-day { font-family: var(--serif); font-size: 1.2rem; color: var(--navy); margin: 8px 0 6px; }
+td.write-in { min-width: 180px; }

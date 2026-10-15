@@ -1,0 +1,22 @@
+# שומר על פרויקט Supabase (תוכנית חינמית) פעיל: פנייה קלה פעם ביום.
+# בלי זה Supabase משהה פרויקט אחרי 7 ימים ללא פעילות.
+name: Keep Supabase awake
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ping
+        run: |
+          URL=$(grep -oP "SUPABASE_URL:\s*'\K[^']+" web/config.js)
+          KEY=$(grep -oP "SUPABASE_PUBLISHABLE_KEY:\s*'\K[^']+" web/config.js)
+          if [ -z "$URL" ]; then echo "config.js not set"; exit 0; fi
+          curl -fsS -X POST "$URL/functions/v1/parent" -H "apikey: $KEY" -H "content-type: application/json" -d '{"action":"settings"}' -o /dev/null -w "HTTP %{http_code}\n"
