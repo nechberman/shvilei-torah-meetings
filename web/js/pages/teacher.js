@@ -1,5 +1,5 @@
 // דף רב: "התורים שלי" (אסיפות, שעות, לוח תורים) ו"התלמידים שלי" (רשימה כולל מספרי זהות, הוספה ועריכה)
-import { isConfigured, rpc, select } from '../lib/api.js';
+import { isConfigured, rpc } from '../lib/api.js';
 import { requireStaff, staffNav } from '../lib/auth.js';
 import { fullDayLabel } from '../lib/dates.js';
 import { errorMessage } from '../lib/errors.js';
@@ -40,12 +40,7 @@ async function init() {
 
 /** @param {HTMLElement} el */
 async function tabMeetings(el) {
-  const mine = await select('conference_teachers', 'conference_id', (q) => q.eq('teacher_id', me.id));
-  const ids = mine.map((r) => r.conference_id);
-  const confs = ids.length
-    ? await select('conferences', 'id, title, description, starts_on, ends_on, status, created_by', (q) =>
-      q.in('id', ids).neq('status', 'archived').order('starts_on', { ascending: false }))
-    : [];
+  const confs = (await rpc('staff_my_conferences')).filter((/** @type {any} */ c) => c.status !== 'archived');
   const reload = (/** @type {string} */ selectId) => {
     if (selectId) history.replaceState(null, '', `?c=${selectId}${location.hash}`);
     tabMeetings(el);
@@ -86,7 +81,7 @@ async function tabMeetings(el) {
     current = confs.find((c) => c.id === picker.value);
     history.replaceState(null, '', `?c=${current.id}${location.hash}`);
     showConf();
-  } }, ...confs.map((c) => h('option', { value: c.id, selected: c.id === current.id }, c.title))));
+  } }, ...confs.map((/** @type {any} */ c) => h('option', { value: c.id, selected: c.id === current.id }, c.title))));
 
   /** @param {string} status @param {string} text @param {string} msg */
   const statusBtn = (status, text, msg) => h('button', { class: 'btn small secondary', type: 'button', onclick: async () => {
@@ -108,7 +103,7 @@ async function tabMeetings(el) {
   }, 'מחיקה לצמיתות');
 
   function showConf() {
-    const own = current.created_by === me.id || me.role === 'admin';
+    const own = !!current.can_manage;
     const st = current.status;
     mount(meta,
       h('p', null, confStatusTag(st), ' ', `${fullDayLabel(current.starts_on)} עד ${fullDayLabel(current.ends_on)}`),
@@ -119,7 +114,7 @@ async function tabMeetings(el) {
         st === 'closed' ? statusBtn('open', 'פתיחה מחדש', 'ההורים יוכלו שוב לקבוע תורים.') : null,
         st === 'closed' || st === 'draft' ? statusBtn('archived', 'העברה לארכיון', 'האסיפה תוסתר ותישמר לצפייה בלבד.') : null,
         h('button', { class: 'btn small danger', type: 'button', onclick: deleteDialog }, 'מחיקת האסיפה'))
-        : h('p', { class: 'muted small' }, 'את האסיפה הזו פתחה ההנהלה – פתיחה וסגירה שלה נעשות על ידי ההנהלה.'));
+        : h('p', { class: 'muted small' }, `האסיפה משותפת ל-${current.teacher_count} רבנים, ולכן עריכה, סגירה ומחיקה שלה נעשות על ידי ההנהלה או מי שפתח אותה. את השעות והתורים שלך אפשר לנהל כרגיל.`));
     renderWorkspace(wsHost, { conference: current, teacherId: me.id, teacherName: me.full_name, me });
   }
   mount(el, h('div', { class: 'toolbar' }, h('div', { class: 'field' }, h('label', { for: 'conf' }, 'אסיפה'), picker), newBtn), meta, wsHost);

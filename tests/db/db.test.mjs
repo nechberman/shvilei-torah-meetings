@@ -491,6 +491,22 @@ test.describe('database', { skip }, () => {
     assert.equal(r.ok, true);
   });
 
+  test('teacher manages admin-created conference only when he is its only teacher', async () => {
+    const [{ id: solo }] = await as('authenticated', U.admin,
+      "select admin_upsert_conference(null, 'אסיפה של המנהל לרב ב', null, '2027-02-01', '2027-02-02') as id");
+    await as('authenticated', U.admin, 'select admin_set_conference_teacher($1, $2, 10)', [solo, S.t2]);
+    const list = await as('authenticated', U.t2, 'select id, can_manage from staff_my_conferences()');
+    assert.equal(list.find((c) => c.id === solo).can_manage, true);
+    await as('authenticated', U.t2, "select staff_upsert_conference($1, 'שם חדש', null, '2027-02-01', '2027-02-03', 15)", [solo]);
+    // כשמצטרף רב נוסף – הרב כבר לא מנהל אותה
+    await as('authenticated', U.admin, 'select admin_set_conference_teacher($1, $2, 10)', [solo, S.t1]);
+    assert.equal((await as('authenticated', U.t2, 'select can_manage from staff_my_conferences() where id = $1', [solo]))[0].can_manage, false);
+    await assert.rejects(as('authenticated', U.t2, "select staff_delete_conference($1, 'שם חדש')", [solo]), /not_authorized/);
+    await as('authenticated', U.admin, 'select admin_remove_conference_teacher($1, $2)', [solo, S.t1]);
+    const [{ r }] = await as('authenticated', U.t2, "select staff_delete_conference($1, 'שם חדש') as r", [solo]);
+    assert.equal(r.ok, true);
+  });
+
   test('delete student: own only, only without appointment history', async () => {
     const [{ id }] = await as('authenticated', U.t2, 'select staff_upsert_my_student(null, $1, $2, $3, true) as id',
       [makeId(60000001), 'למחיקה', S.classC]);

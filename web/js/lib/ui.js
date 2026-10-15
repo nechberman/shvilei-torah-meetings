@@ -36,6 +36,38 @@ function append(el, children) {
 export function mount(el, ...children) {
   el.replaceChildren();
   append(/** @type {HTMLElement} */ (el), children);
+  labelTables(el);
+}
+
+/**
+ * בנייד טבלאות מוצגות ככרטיסים: כל תא מקבל את שם העמודה שלו (data-label)
+ * @param {Element} root
+ */
+export function labelTables(root) {
+  const tables = root.matches?.('table.data') ? [root] : [...root.querySelectorAll('table.data')];
+  for (const table of tables) {
+    const heads = [...table.querySelectorAll('thead th')].map((th) => th.textContent?.trim() || '');
+    for (const tr of table.querySelectorAll('tbody tr')) {
+      [...tr.children].forEach((td, i) => {
+        const cell = /** @type {HTMLElement} */ (td);
+        if (heads[i] && !cell.dataset.label && !cell.hasAttribute('colspan')) cell.dataset.label = heads[i];
+        if (!heads[i] && !cell.hasAttribute('colspan')) cell.classList.add('cell-actions');
+      });
+    }
+  }
+}
+
+// טבלאות שנוספות בדרכים אחרות (למשל append ישיר) – מתויגות אוטומטית
+if (typeof MutationObserver !== 'undefined' && typeof document !== 'undefined') {
+  new MutationObserver((muts) => {
+    for (const m of muts) {
+      for (const n of m.addedNodes) {
+        if (n instanceof Element && (n.matches('table.data, tbody, tr') || n.querySelector('table.data'))) {
+          labelTables(n.closest('table.data') || n);
+        }
+      }
+    }
+  }).observe(document.documentElement, { childList: true, subtree: true });
 }
 
 /** @param {string} [text] */
