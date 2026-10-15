@@ -42,6 +42,7 @@ const MESSAGES = {
   weak_password: 'הסיסמה חלשה: לפחות 10 תווים, כולל אותיות וספרות.',
   staff_exists: 'איש צוות עם מספר זהות זה כבר קיים.',
   bootstrap_disabled: 'כבר קיים מנהל במערכת. ההקמה הראשונית נסגרה.',
+  bootstrap_not_configured: 'קוד ההקמה עדיין לא נשמר ב-Supabase (BOOTSTRAP_TOKEN, לפחות 20 תווים).',
   bootstrap_token_invalid: 'קוד ההקמה שגוי.',
   note_too_long: 'ההערה ארוכה מדי.',
   network: 'בעיית תקשורת. בדקו את החיבור לאינטרנט ונסו שוב.',

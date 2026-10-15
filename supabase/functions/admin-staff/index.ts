@@ -67,8 +67,11 @@ Deno.serve(async (req) => {
       if (rlErr) throw rlErr;
       if (allowed !== true) return json(req, { ok: false, error: 'rate_limited' }, 429);
       const { count } = await db.from('staff_users').select('id', { count: 'exact', head: true }).eq('role', 'admin');
-      if ((count ?? 0) > 0 || expected.length < 20) {
+      if ((count ?? 0) > 0) {
         return json(req, { ok: false, error: 'bootstrap_disabled' }, 403);
+      }
+      if (expected.length < 20) {
+        return json(req, { ok: false, error: 'bootstrap_not_configured' }, 403);
       }
       const token = typeof body.token === 'string' ? body.token : '';
       const a = new TextEncoder().encode(token.padEnd(128, '\0').slice(0, 128));
