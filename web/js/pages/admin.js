@@ -362,7 +362,11 @@ async function tabStudents(el) {
           h('td', null, s.has_code ? 'יש' : '—'), h('td', null, s.active ? 'פעיל' : h('span', { class: 'tag blocked' }, 'לא פעיל')),
           h('td', null, h('div', { class: 'row', style: 'gap:6px' },
             h('button', { class: 'btn small secondary', type: 'button', onclick: () => editDialog(s) }, 'עריכה'),
-            h('button', { class: 'btn small secondary', type: 'button', onclick: () => codeDialog(s) }, 'קוד')))))))),
+            h('button', { class: 'btn small secondary', type: 'button', onclick: () => codeDialog(s) }, 'קוד'),
+            h('button', { class: 'btn small danger', type: 'button', onclick: async () => {
+              if (!(await confirmDialog(`מחיקת ${s.full_name}`, 'התלמיד יימחק לצמיתות. תלמיד עם תורים קודמים לא יימחק – אפשר לסמן אותו "לא פעיל" בעריכה.', { danger: true, okText: 'מחיקה' }))) return;
+              try { await rpc('staff_delete_student', { p_id: s.id }); toast('התלמיד נמחק'); reload(); } catch (err) { toast(errorMessage(err), 'err'); }
+            } }, 'מחיקה')))))))),
     h('p', { class: 'muted small' }, `מוצגים ${rows.length} מתוך ${students.length}`));
   };
   for (const c of [search, fClass, fTeacher, fActive]) c.addEventListener('input', renderTable);

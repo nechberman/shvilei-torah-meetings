@@ -5,7 +5,7 @@ import { fullDayLabel } from '../lib/dates.js';
 import { errorMessage } from '../lib/errors.js';
 import { exportXlsx } from '../lib/excel.js';
 import { normalizeIsraeliId } from '../lib/israeli-id.js';
-import { alertBox, confStatusTag, empty, field, formDialog, h, loading, mount, siteHeader, toast, val } from '../lib/ui.js';
+import { alertBox, confStatusTag, confirmDialog, empty, field, formDialog, h, loading, mount, siteHeader, toast, val } from '../lib/ui.js';
 import { renderWorkspace } from '../lib/workspace.js';
 
 const app = /** @type {HTMLElement} */ (document.getElementById('app'));
@@ -43,11 +43,39 @@ async function tabMeetings(el) {
   const mine = await select('conference_teachers', 'conference_id', (q) => q.eq('teacher_id', me.id));
   const ids = mine.map((r) => r.conference_id);
   const confs = ids.length
-    ? await select('conferences', 'id, title, description, starts_on, ends_on, status', (q) =>
+    ? await select('conferences', 'id, title, description, starts_on, ends_on, status, created_by', (q) =>
       q.in('id', ids).neq('status', 'archived').order('starts_on', { ascending: false }))
     : [];
+  const reload = (/** @type {string} */ selectId) => {
+    if (selectId) history.replaceState(null, '', `?c=${selectId}${location.hash}`);
+    tabMeetings(el);
+  };
+
+  /** @param {any|null} c */
+  const confDialog = (c) => formDialog(c ? 'עריכת אסיפה' : 'אסיפת הורים חדשה', h('div', null,
+    field('שם האסיפה', h('input', { name: 'title', type: 'text', required: true, maxlength: '120', value: c?.title || '', placeholder: 'למשל: אסיפת הורים – חנוכה' })),
+    field('הודעה להורים (לא חובה)', h('textarea', { name: 'desc', maxlength: '1000' }, c?.description || '')),
+    h('div', { class: 'row' },
+      field('מתאריך', h('input', { name: 'from', type: 'date', required: true, value: c?.starts_on || '' })),
+      field('עד תאריך', h('input', { name: 'to', type: 'date', required: true, value: c?.ends_on || '' }))),
+    !c ? field('כל כמה דקות תור', h('select', { name: 'dur' },
+      ...[5, 10, 15, 20, 30, 45, 60].map((m) => h('option', { value: String(m), selected: m === 15 }, m === 15 ? 'רבע שעה (15 דקות)' : m === 30 ? 'חצי שעה (30 דקות)' : m === 60 ? 'שעה' : `${m} דקות`)))) : null,
+    !c ? h('p', { class: 'muted small' }, 'אחרי היצירה תוסיפו שעות קבלה, ואז "פתיחה להרשמה" כדי שההורים יוכלו לקבוע.') : null), async (form) => {
+    if (!val(form, 'title') || !val(form, 'from') || !val(form, 'to')) throw new Error('invalid_range');
+    const id = await rpc('staff_upsert_conference', {
+      p_id: c?.id || null, p_title: val(form, 'title'),
+      p_description: /** @type {HTMLTextAreaElement} */ (form.elements.namedItem('desc')).value,
+      p_starts_on: val(form, 'from'), p_ends_on: val(form, 'to'), p_minutes: Number(val(form, 'dur') || 15),
+    });
+    toast(c ? 'האסיפה עודכנה' : 'האסיפה נוצרה');
+    reload(id);
+  }, c ? 'שמירה' : 'יצירת האסיפה');
+
+  const newBtn = h('button', { class: 'btn', type: 'button', onclick: () => confDialog(null) }, 'אסיפת הורים חדשה');
+
   if (!confs.length) {
-    mount(el, h('section', { class: 'panel' }, empty('אין אסיפות פעילות', 'כשההנהלה תשייך אותך לאסיפה, היא תופיע כאן.')));
+    mount(el, h('section', { class: 'panel' }, empty('אין אסיפות פעילות', 'אפשר לפתוח אסיפה בעצמך, או לחכות שההנהלה תשייך אותך לאסיפה.'),
+      h('div', { style: 'text-align:center' }, newBtn)));
     return;
   }
   const params = new URLSearchParams(location.search);
@@ -60,11 +88,41 @@ async function tabMeetings(el) {
     showConf();
   } }, ...confs.map((c) => h('option', { value: c.id, selected: c.id === current.id }, c.title))));
 
+  /** @param {string} status @param {string} text @param {string} msg */
+  const statusBtn = (status, text, msg) => h('button', { class: 'btn small secondary', type: 'button', onclick: async () => {
+    if (!(await confirmDialog(text, msg))) return;
+    try {
+      await rpc('staff_set_conference_status', { p_id: current.id, p_status: status });
+      toast('הסטטוס עודכן');
+      reload(current.id);
+    } catch (err) { toast(errorMessage(err), 'err'); }
+  } }, text);
+
+  const deleteDialog = () => formDialog(`מחיקת האסיפה "${current.title}"`, h('div', null,
+    alertBox('err', 'המחיקה סופית: יימחקו האסיפה, השעות, התורים שנקבעו בה וההערות עליהם.'),
+    field('לאישור, הקלידו את שם האסיפה', h('input', { name: 'confirm', type: 'text', autocomplete: 'off', required: true, placeholder: current.title }))), async (form) => {
+    await rpc('staff_delete_conference', { p_id: current.id, p_confirm_title: val(form, 'confirm') });
+    toast('האסיפה נמחקה');
+    history.replaceState(null, '', location.pathname + location.hash);
+    tabMeetings(el);
+  }, 'מחיקה לצמיתות');
+
   function showConf() {
-    mount(meta, h('p', null, confStatusTag(current.status), ' ', `${fullDayLabel(current.starts_on)} עד ${fullDayLabel(current.ends_on)}`));
+    const own = current.created_by === me.id || me.role === 'admin';
+    const st = current.status;
+    mount(meta,
+      h('p', null, confStatusTag(st), ' ', `${fullDayLabel(current.starts_on)} עד ${fullDayLabel(current.ends_on)}`),
+      own ? h('div', { class: 'row no-print', style: 'gap:8px;margin-bottom:14px' },
+        h('button', { class: 'btn small secondary', type: 'button', onclick: () => confDialog(current) }, 'עריכת האסיפה'),
+        st === 'draft' ? statusBtn('open', 'פתיחה להרשמה', 'ההורים יוכלו לקבוע תורים באסיפה זו.') : null,
+        st === 'open' ? statusBtn('closed', 'סגירת ההרשמה', 'ההורים לא יוכלו לקבוע תורים חדשים.') : null,
+        st === 'closed' ? statusBtn('open', 'פתיחה מחדש', 'ההורים יוכלו שוב לקבוע תורים.') : null,
+        st === 'closed' || st === 'draft' ? statusBtn('archived', 'העברה לארכיון', 'האסיפה תוסתר ותישמר לצפייה בלבד.') : null,
+        h('button', { class: 'btn small danger', type: 'button', onclick: deleteDialog }, 'מחיקת האסיפה'))
+        : h('p', { class: 'muted small' }, 'את האסיפה הזו פתחה ההנהלה – פתיחה וסגירה שלה נעשות על ידי ההנהלה.'));
     renderWorkspace(wsHost, { conference: current, teacherId: me.id, teacherName: me.full_name, me });
   }
-  mount(el, h('div', { class: 'toolbar' }, h('div', { class: 'field' }, h('label', { for: 'conf' }, 'אסיפה'), picker)), meta, wsHost);
+  mount(el, h('div', { class: 'toolbar' }, h('div', { class: 'field' }, h('label', { for: 'conf' }, 'אסיפה'), picker), newBtn), meta, wsHost);
   showConf();
 }
 
@@ -95,6 +153,26 @@ async function tabStudents(el) {
     });
   };
 
+  /** @param {any} s */
+  const removeStudent = async (s) => {
+    if (!(await confirmDialog(`מחיקת ${s.full_name}`, 'התלמיד יימחק מהרשימה לצמיתות.', { danger: true, okText: 'מחיקה' }))) return;
+    try {
+      await rpc('staff_delete_student', { p_id: s.id });
+      toast('התלמיד נמחק');
+      reload();
+    } catch (err) {
+      const code = String(/** @type {any} */ (err)?.message || '');
+      if (code.includes('student_has_history') && s.active
+        && await confirmDialog('אי אפשר למחוק', 'לתלמיד יש תורים קודמים במערכת, ולכן הוא נשמר להיסטוריה. להפוך אותו ל"לא פעיל"? כך הוא ייעלם מההורים ומהדוחות.', { okText: 'סימון כלא פעיל' })) {
+        await rpc('staff_upsert_my_student', { p_id: s.id, p_national_id: s.national_id, p_full_name: s.full_name, p_class_id: s.class_id, p_active: false });
+        toast('התלמיד סומן כלא פעיל');
+        reload();
+      } else if (!code.includes('student_has_history')) {
+        toast(errorMessage(err), 'err');
+      }
+    }
+  };
+
   const render = () => {
     const q = search.value.trim();
     const digits = q.replace(/\D/g, '');
@@ -106,7 +184,9 @@ async function tabStudents(el) {
         h('tbody', null, ...rows.map((/** @type {any} */ s) => h('tr', null,
           h('td', null, s.full_name), h('td', { class: 'num' }, s.national_id), h('td', null, s.class_name),
           h('td', null, s.active ? 'פעיל' : h('span', { class: 'tag blocked' }, 'לא פעיל')),
-          h('td', null, h('button', { class: 'btn small secondary', type: 'button', onclick: () => dialog(s) }, 'עריכה'))))))));
+          h('td', null, h('div', { class: 'row', style: 'gap:6px' },
+            h('button', { class: 'btn small secondary', type: 'button', onclick: () => dialog(s) }, 'עריכה'),
+            h('button', { class: 'btn small danger', type: 'button', onclick: () => removeStudent(s) }, 'מחיקה')))))))));
   };
   search.addEventListener('input', render);
 

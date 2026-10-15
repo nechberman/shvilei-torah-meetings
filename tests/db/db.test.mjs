@@ -472,4 +472,33 @@ test.describe('database', { skip }, () => {
       assert.equal((await su(`select count(*)::int n from ${t} where ${col} = $1`, [S.conf2]))[0].n, 0, t);
     }
   });
+
+  test('teacher opens own conference; cannot manage others; admin sees all', async () => {
+    const [{ id }] = await as('authenticated', U.t2,
+      "select staff_upsert_conference(null, 'אסיפה של רב ב', null, '2027-01-10', '2027-01-11', 15) as id");
+    const ct = await su('select teacher_id, slot_duration_minutes from conference_teachers where conference_id = $1', [id]);
+    assert.deepEqual(ct, [{ teacher_id: S.t2, slot_duration_minutes: 15 }]);
+    await as('authenticated', U.t2, 'select staff_add_availability($1, $2, $3, $4)',
+      [id, S.t2, '2027-01-10T12:00:00Z', '2027-01-10T16:00:00Z']);
+    assert.equal((await su('select count(*)::int n from appointment_slots where conference_id = $1', [id]))[0].n, 16);
+    await as('authenticated', U.t2, "select staff_set_conference_status($1, 'open')", [id]);
+    await assert.rejects(as('authenticated', U.t1, "select staff_set_conference_status($1, 'closed')", [id]), /not_authorized/);
+    await assert.rejects(as('authenticated', U.t1, "select staff_delete_conference($1, 'אסיפה של רב ב')", [id]), /not_authorized/);
+    assert.equal((await as('authenticated', U.t1, 'select id from conferences where id = $1', [id])).length, 0, 'other teacher cannot see');
+    assert.equal((await as('authenticated', U.admin, 'select id from conferences where id = $1', [id])).length, 1, 'admin sees');
+    await as('authenticated', U.admin, "select staff_set_conference_status($1, 'closed')", [id]);
+    const [{ r }] = await as('authenticated', U.t2, "select staff_delete_conference($1, 'אסיפה של רב ב') as r", [id]);
+    assert.equal(r.ok, true);
+  });
+
+  test('delete student: own only, only without appointment history', async () => {
+    const [{ id }] = await as('authenticated', U.t2, 'select staff_upsert_my_student(null, $1, $2, $3, true) as id',
+      [makeId(60000001), 'למחיקה', S.classC]);
+    await assert.rejects(as('authenticated', U.t1, 'select staff_delete_student($1)', [id]), /not_authorized/);
+    await as('authenticated', U.t2, 'select staff_delete_student($1)', [id]);
+    assert.equal((await su('select count(*)::int n from students where id = $1', [id]))[0].n, 0);
+    // תלמיד עם היסטוריית תורים – לא נמחק
+    const [{ student_id }] = await su('select student_id from appointments limit 1');
+    await assert.rejects(as('authenticated', U.admin, 'select staff_delete_student($1)', [student_id]), /student_has_history/);
+  });
 });
