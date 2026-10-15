@@ -57,9 +57,14 @@ p { margin: 0 0 .9em; }
   max-width: 1100px; margin: 0 auto; padding: 14px 16px;
   display: flex; align-items: center; gap: 14px;
 }
-.site-head img.logo { height: 48px; width: auto; background: #fff; border-radius: 50%; padding: 3px; }
-.site-head .name { font-family: var(--serif); font-size: 1.3rem; font-weight: 700; }
-.site-head .sub { font-size: .95rem; opacity: .85; }
+.site-head .brand { display: block; background: #fff; border-radius: var(--r-md); padding: 6px 12px; line-height: 0; flex-shrink: 0; }
+.site-head .brand img { height: 52px; width: auto; display: block; }
+.site-head .head-text { min-width: 0; }
+.site-head .sub { font-family: var(--serif); font-size: 1.15rem; font-weight: 700; }
+@media (max-width: 520px) {
+  .site-head .brand img { height: 44px; }
+  .site-head .sub { font-size: 1rem; }
+}
 .site-head nav { margin-inline-start: auto; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .site-head nav .who { font-size: .95rem; opacity: .9; margin-inline-end: 6px; }
 
@@ -143,7 +148,7 @@ textarea { min-height: 90px; resize: vertical; }
 .empty strong { display: block; color: var(--text); font-size: 1.1rem; margin-bottom: 4px; }
 
 /* ---------- הורים: פתיח ---------- */
-.parent-hero { text-align: center; padding: 26px 8px 8px; }
+.parent-hero { text-align: center; padding: 18px 8px 8px; }
 .parent-hero img.logo { width: 96px; height: 96px; object-fit: contain; }
 .parent-hero h1 { font-size: 2.1rem; margin-top: 10px; }
 .parent-hero .school { font-family: var(--serif); font-size: 1.15rem; color: var(--muted); }

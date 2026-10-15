@@ -87,9 +87,8 @@ function renderEntry(error) {
 
   mount(app,
     h('div', { class: 'parent-hero' },
-      state.settings?.logo_url ? h('img', { class: 'logo', src: state.settings.logo_url, alt: 'סמל הישיבה' }) : null,
       h('h1', null, 'זימון תור לאסיפת הורים'),
-      h('div', { class: 'school' }, state.settings?.school_name || 'ישיבת שבילי התורה')),
+      h('div', { class: 'school' }, 'בחרו מועד לפגישה עם הרב')),
     h('section', { class: 'panel', 'aria-label': 'כניסה' }, form),
     h('p', { class: 'muted small', style: 'text-align:center' },
       h('a', { href: './staff.html' }, 'כניסת צוות')));

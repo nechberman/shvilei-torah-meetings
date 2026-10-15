@@ -152,11 +152,12 @@ export function confStatusTag(s) {
  * @param {string} subtitle
  * @param {HTMLElement|null} [nav] */
 export function siteHeader(settings, subtitle, nav) {
+  const name = settings?.school_name || 'ישיבת שבילי התורה';
   return h('header', { class: 'site-head' },
     h('div', { class: 'inner' },
-      h('img', { class: 'logo', src: settings?.logo_url || './assets/logo.svg', alt: '' }),
-      h('div', null,
-        h('div', { class: 'name' }, settings?.school_name || 'ישיבת שבילי התורה'),
+      h('a', { class: 'brand', href: './', 'aria-label': `${name} – דף הבית` },
+        h('img', { src: settings?.logo_url || './assets/logo.png', alt: name })),
+      h('div', { class: 'head-text' },
         h('div', { class: 'sub' }, subtitle)),
       nav || null));
 }
