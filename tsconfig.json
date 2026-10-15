@@ -12,5 +12,5 @@
     "skipLibCheck": true,
     "types": []
   },
-  "include": ["web/js/**/*.js"]
+  "include": ["web/js/**/*.js", "web/js/globals.d.ts"]
 }

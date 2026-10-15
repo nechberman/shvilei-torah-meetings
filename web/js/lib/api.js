@@ -6,7 +6,11 @@ import { createClient } from '@supabase/supabase-js';
 
 /** @returns {AppConfig} */
 export function config() {
-  const c = /** @type {any} */ (window).APP_CONFIG || {};
+  // config.js הוא המקור; אם לא נטען – גיבוי שנארז בזמן build
+  /* global __BUNDLED_CONFIG__ */
+  const bundled = typeof __BUNDLED_CONFIG__ !== 'undefined' ? __BUNDLED_CONFIG__ : {};
+  const w = /** @type {any} */ (window).APP_CONFIG || {};
+  const c = w.SUPABASE_URL ? w : bundled;
   return { SUPABASE_URL: String(c.SUPABASE_URL || ''), SUPABASE_PUBLISHABLE_KEY: String(c.SUPABASE_PUBLISHABLE_KEY || '') };
 }
 
